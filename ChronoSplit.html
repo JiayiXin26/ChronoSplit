@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>ChronoSplit — Column Dominion </title>
+<style>
+  :root{
+    /* Aurora theme */
+    --bg:#0b101a; --panel:#11182b; --ink:#e9f1ff; --muted:#9fb0d8;
+    --accent:#7ad8ff; --accent2:#b8a3ff; --good:#76f7c6; --warn:#ffd56a; --bad:#ff89a0;
+    --tileA:#131a34; --tileB:#0f152e;
+    --ghostB:#43b7ff; --ghostW:#d2c7ff;
+    --pillar:#ffb86b; --contest:#ff7a90; --forge:#f2c94c; --temp:#70e1aa;
+    --tab:#171f3d; --tabOn:#233060; --tabPick:#36427a;
+    --heatBlue: rgba(74, 167, 255, .22);
+    --heatRed: rgba(255, 96, 122, .22);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:
+    radial-gradient(1200px 800px at -10% -20%, #1b2354 0%, transparent 60%),
+    radial-gradient(1000px 700px at 110% 10%, #1a214c 0%, transparent 60%),
+    var(--bg); color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;}
+  .app{ max-width:1400px; margin:0 auto; height:100%; display:grid; grid-template-columns: 1fr 360px; gap:12px; padding:16px;}
+  /* LEFT */
+  .left{ display:grid; grid-template-rows:auto auto auto 1fr auto; gap:10px; min-width:740px; }
+  h1{ margin:0; font-size:22px; letter-spacing:.3px;}
+  .row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .badge{ background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color: var(--muted); padding:6px 10px; border-radius:999px; font-size:12px; }
+  .btn, .seg button{ background: linear-gradient(180deg, #2a357a, #1b245a); border:1px solid rgba(255,255,255,0.15); color:var(--ink); padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:600;}
+  .btn:disabled{ opacity:.5; cursor:default;}
+  .seg{ display:inline-grid; grid-auto-flow:column; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; overflow:hidden;}
+  .seg button{ background:transparent; }
+  .seg button.on{ background:linear-gradient(180deg, #2a357a, #1b245a); }
+  .tabs{ display:flex; gap:6px; flex-wrap:wrap;}
+  .tab{ background: var(--tab); border:1px solid rgba(255,255,255,0.12); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer; color:#cfd6ff; display:flex; align-items:center; gap:6px;}
+  .tab.on{ background: var(--tabOn); outline:2px solid var(--accent); }
+  .tab.pick{ background: var(--tabPick); outline:2px dashed var(--warn); }
+  .tab .mini{ opacity:.85; font-weight:700; }
+  .timelineIcon{ width:10px; height:10px; border-radius:50%; background:#4ec1ff; box-shadow:0 0 0 2px rgba(0,0,0,.35);}
+  .forkIcon{ width:10px; height:10px; border-radius:2px; background:#c59dff; box-shadow:0 0 0 2px rgba(0,0,0,.35);}
+  .mergeIcon{ width:10px; height:10px; border-radius:50%; background:#76f7c6; box-shadow:0 0 0 2px rgba(0,0,0,.35);}
+  .boardWrap{ position:relative; }
+  .board{ position:relative; display:grid; gap:2px; padding:8px; background: rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:14px; }
+  .cell{ width:58px; height:58px; background: var(--tileA); border:1px solid rgba(255,255,255,0.08); border-radius:10px; display:flex; align-items:center; justify-content:center; position:relative; cursor:pointer; }
+  .cell.alt{ background: var(--tileB); }
+  .stone{ width:42px; height:42px; border-radius:50%; box-shadow: inset 0 2px 8px rgba(0,0,0,0.45), 0 2px 12px rgba(0,0,0,0.35); animation: pop .18s ease; }
+  .B{ background: radial-gradient(14px 14px at 40% 35%, #8394c8 0%, #0a0d17 60%); }
+  .W{ background: radial-gradient(14px 14px at 40% 35%, #ffffff 0%, #b6c2df 80%); }
+  .ghost{ position:absolute; inset:8px; border-radius:50%; border:2px dashed rgba(255,255,255,0.35); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; animation: pulse 1.2s infinite; }
+  .ghost.B{ border-color: var(--ghostB); color:#a6dfff; }
+  .ghost.W{ border-color: var(--ghostW); color:#efe9ff; }
+  .ghost.sel{ outline:3px solid var(--accent2); }
+  .tempBridge{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:4px; border:2px solid var(--temp); opacity:.95; box-shadow:0 0 10px rgba(112,225,170,.35); }
+  .pillarDot{ position:absolute; bottom:3px; left:3px; width:10px; height:10px; border-radius:50%; background: var(--pillar); box-shadow:0 0 0 2px rgba(0,0,0,.3); }
+  .pillarDot.contest{ background: var(--contest); animation: shake .6s infinite; }
+  .forgeStar{ position:absolute; top:2px; right:4px; font-size:16px; color: var(--forge); filter: drop-shadow(0 0 2px #000); animation: glow 1.6s infinite alternate; }
+  .bridgePreview{ position:absolute; inset:6px; border-radius:8px; background: linear-gradient(180deg, rgba(140,174,255,.18), rgba(140,174,255,.08)); pointer-events:none; }
+  canvas.overlay{ position:absolute; left:0; top:0; pointer-events:none; }
+  .toast{ position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.55); color:#fff; padding:8px 12px; border-radius:999px; border:1px solid rgba(255,255,255,0.1); pointer-events:none; opacity:0; transition:opacity .2s ease; }
+  .toast.show{ opacity:1; }
+
+  @keyframes pulse{ 0%{transform:scale(1)} 60%{transform:scale(1.06)} 100%{transform:scale(1)} }
+  @keyframes pop{ from{ transform:scale(.6); opacity:.2 } to{ transform:scale(1); opacity:1 } }
+  @keyframes glow{ from{ filter: drop-shadow(0 0 2px #f2c94c)} to{ filter: drop-shadow(0 0 8px #f2c94c)} }
+  @keyframes shake{ 0%{transform:translateX(0)} 50%{transform:translateX(1px)} 100%{transform:translateX(0)} }
+
+  /* RIGHT INFORMATION PANEL */
+  .right{ background: var(--panel); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:12px; display:grid; grid-template-rows:auto auto 1fr; gap:10px; }
+  .h2{ font-size:14px; letter-spacing:.4px; color:#cfe3ff; margin:6px 0 2px 0; }
+  .kv{ display:flex; gap:8px; flex-wrap:wrap; }
+  .card{ background: rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:8px; }
+  .list{ font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#d6dcff; white-space:pre-wrap; max-height:120px; overflow:auto; }
+  .meter{ height:6px; background:#0e1428; border:1px solid #273154; border-radius:999px; overflow:hidden; }
+  .meter > div{ height:100%; background: linear-gradient(90deg, #4ac1ff, #b8a3ff); width:0%; transition:width .25s ease; }
+  .pill{ padding:4px 8px; border-radius:999px; background:#1a2036; color:#c7d1ff; font-weight:700; font-size:12px }
+  .sep{ height:1px; background:#223055; margin:6px 0 }
+  .log{ background:#0e1320; border:1px solid #1b2241; border-radius:10px; padding:8px; height:160px; overflow:auto; white-space:pre-wrap; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#d6dcff; }
+
+  @media (max-width: 1200px){
+    .cell{ width:48px; height:48px; }
+    .stone{ width:34px; height:34px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="left">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <h1>ChronoSplit — <span style="color:#b7a7ff">Column Dominion</span> <span class="pill"> </span></h1>
+        <div class="badge">Hold <b>Space</b> to preview bridges · Toggle overlays on the right</div>
+      </div>
+      <div class="row">
+        <div class="badge">Turn: <span id="turnBadge">Black</span></div>
+        <div class="badge">Turn# <span id="turnNum">1</span></div>
+        <div class="badge">Ψ B:<span id="psiB">3</span> W:<span id="psiW">3</span></div>
+        <div class="badge">Splits B:<span id="splitB">0</span>/2 • W:<span id="splitW">0</span>/2</div>
+        <div class="badge">Timelines: <span id="tcount">1</span>/4</div>
+        <div class="badge">Merges B:<span id="mergeB">0</span>/1 • W:<span id="mergeW">0</span>/1</div>
+      </div>
+    </div>
+
+    <div id="tabs" class="tabs"></div>
+
+    <div class="row">
+      <div class="seg" id="modes">
+        <button data-mode="place" class="on">Place</button>
+        <button data-mode="reserve">Reserve</button>
+        <button data-mode="split">Split</button>
+        <button data-mode="forge">Forge</button>
+        <button data-mode="merge">Merge</button>
+        <button data-mode="close">Close</button>
+      </div>
+      <div class="seg" id="delays">
+        <button data-delay="1">D1</button>
+        <button data-delay="2" class="on">D2</button>
+        <button data-delay="3">D3</button>
+      </div>
+      <button id="end" class="btn">End Turn</button>
+      <button id="aiNow" class="btn">Force AI</button>
+      <label class="badge"><input type="checkbox" id="aiWhite"> AI=White</label>
+      <div class="badge" id="actionBadge">Action: 0/1</div>
+    </div>
+
+    <div class="boardWrap">
+      <div id="board" class="board"></div>
+      <canvas id="overlay" class="overlay"></canvas>
+    </div>
+
+    <div class="badge">Key: Ghost countdown • ★=Forged pillar • green square=Temporary Bridge • orange dot=Pillar • red dot=Contested Pillar</div>
+  </div>
+
+  <!-- RIGHT INFORMATION PANEL -->
+  <div class="right">
+    <div>
+      <div class="h2">Overview</div>
+      <div class="kv">
+        <span class="pill">Active TL: <span id="activeTL">T1</span></span>
+        <span class="pill">Branching: <span id="branching">0</span></span>
+        <span class="pill">Threats ⬦ Me: <span id="thMe">0</span> • Opp: <span id="thOp">0</span></span>
+      </div>
+      <div class="sep"></div>
+      <div class="kv">
+        <div class="card" style="flex:1">
+          <div class="h2">Entropy (Ψ) meter</div>
+          <div class="meter"><div id="psiMeter"></div></div>
+          <div id="psiHint" class="help" style="margin-top:4px; color:#bcd4ff">—</div>
+        </div>
+        <div class="card" style="width:130px">
+          <div class="h2">Overlays</div>
+          <label class="badge" style="display:block;margin-bottom:6px"><input id="ovHeat" type="checkbox" checked> Threat heatmap</label>
+          <label class="badge" style="display:block;margin-bottom:6px"><input id="ovPillar" type="checkbox" checked> Pillar markers</label>
+          <label class="badge" style="display:block;margin-bottom:6px"><input id="ovBridge" type="checkbox"> Always show bridges</label>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="h2">Top Pillars</div>
+      <div id="pillarList" class="list">—</div>
+    </div>
+
+    <div>
+      <div class="h2">Log</div>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(()=>{
+  const N=7, dirs=[[1,0],[0,1],[1,1],[1,-1]];
+  const $=sel=>document.querySelector(sel);
+
+  // State
+  const st = {
+    turn:'B', actionUsed:false, turnNum:1, gameOver:false,
+    psi:{B:3,W:3}, splitUsed:{B:0,W:0}, mergeUsed:{B:false,W:false},
+    maxTimelines:4, maxSplits:2,
+    timelines:[], // {id,name,createdBy:null|'B'|'W', board, ghosts:[{r,c,owner,remain,delay}], tempBridges:[{r,c,owner,remain}], lineage?:{fromTL, r,c}}
+    active:0,
+    forged:{B:new Set(), W:new Set()},
+    lastPsiHint:'—',
+    mergePick:[],
+    showBridgeHold:false
+  };
+
+  function newBoard(){ return Array.from({length:N},()=> Array.from({length:N},()=>'')); }
+  function cloneBoard(b){ return b.map(row=>row.slice()); }
+  function cloneGhosts(gs){ return gs.map(g=> ({...g})); }
+  function cloneTemp(tb){ return tb.map(t=> ({...t})); }
+
+  function init(){
+    st.turn='B'; st.actionUsed=false; st.turnNum=1; st.gameOver=false;
+    st.psi={B:3,W:3}; st.splitUsed={B:0,W:0}; st.mergeUsed={B:false,W:false};
+    st.forged={B:new Set(), W:new Set()};
+    st.timelines=[{ id:1, name:'T1', createdBy:null, board:newBoard(), ghosts:[], tempBridges:[] }];
+    st.active=0; st.lastPsiHint='—';
+    log('New game. P=B');
+    render(); startTurn();
+  }
+
+  //Utils
+  function toast(msg){ const el=$("#toast"); el.textContent=msg; el.classList.add("show"); setTimeout(()=> el.classList.remove("show"), 1200); }
+  function inside(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
+  function key(r,c){ return r+','+c; }
+  function other(w){ return w==='B'?'W':'B'; }
+
+  //Pillars & Bridges
+  function computePillars(){
+    const countB=new Map(), countW=new Map();
+    for(const tl of st.timelines){
+      for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+        const v=tl.board[r][c];
+        if(v==='B') countB.set(key(r,c),(countB.get(key(r,c))||0)+1);
+        if(v==='W') countW.set(key(r,c),(countW.get(key(r,c))||0)+1);
+      }
+    }
+    const pillarsB=new Set(), pillarsW=new Set(), contested=new Set();
+    const allKeys=new Set([...countB.keys(),...countW.keys()]);
+    for(const k of allKeys){
+      const cb=countB.get(k)||0, cw=countW.get(k)||0;
+      if(cb>=2) pillarsB.add(k);
+      if(cw>=2) pillarsW.add(k);
+      if(cb>=2 && cw>=2) contested.add(k);
+    }
+    return {pillarsB,pillarsW,contested};
+  }
+  function isBridgeAt(ti,r,c,who){
+    const {pillarsB,pillarsW,contested}=computePillars();
+    const k=key(r,c); if(contested.has(k)) return false;
+    const opp = other(who);
+    const tl=st.timelines[ti]; const cell=tl.board[r][c];
+    if(cell===opp) return false;
+    const hasPillar = who==='B'?pillarsB.has(k):pillarsW.has(k);
+    if(hasPillar) return true;
+    if(st.forged[who].has(k)) return true;
+    if(tl.tempBridges.some(t=> t.owner===who && t.r===r && t.c===c)) return true;
+    return false;
+  }
+
+  // Win
+  function has5(ti,who){
+    const tl=st.timelines[ti];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      for(const [dr,dc] of dirs){
+        let k=0;
+        while(k<5 && inside(r+k*dr, c+k*dc)){
+          const rr=r+k*dr, cc=c+k*dc;
+          const v=tl.board[rr][cc];
+          const ok=(v===who)||(v===''&&(st.showBridgeHold || $("#ovBridge").checked) && isBridgeAt(ti,rr,cc,who))||(v===''&& isBridgeAt(ti,rr,cc,who));
+          if(!ok) break;
+          k++;
+        }
+        if(k>=5) return true;
+      }
+    }
+    return false;
+  }
+  function threatCount(ti,who){
+    // count windows of length 5 where who could complete by 1 stone (4 covered by stones/bridges + 1 empty/bridgeable)
+    const tl=st.timelines[ti]; let cnt=0;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      for(const [dr,dc] of dirs){
+        let good=true, need=0;
+        for(let k=0;k<5;k++){
+          const rr=r+k*dr, cc=c+k*dc; if(!inside(rr,cc)){ good=false; break; }
+          const v=tl.board[rr][cc];
+          if(v===other(who)){ good=false; break; }
+          if(v===who) continue;
+          // empty: counts if bridgeable
+          if(isBridgeAt(ti,rr,cc,who)) continue;
+          need++;
+          if(need>1){ good=false; break; }
+        }
+        if(good) cnt++;
+      }
+    }
+    return cnt;
+  }
+
+  // ---------- Heatmap ----------
+  function drawHeatmap(){
+    const cvs=$("#overlay"); const boardEl=$("#board");
+    const rect=boardEl.getBoundingClientRect();
+    cvs.width = rect.width; cvs.height = rect.height;
+    const ctx=cvs.getContext("2d");
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    if(!$("#ovHeat").checked) return;
+    const cols=N, rows=N;
+    const cellW = rect.width/N, cellH = rect.height/N;
+
+    // build per-cell scores (how many winning windows include the cell)
+    function cellScore(who){
+      const tl=st.timelines[st.active];
+      const score = Array.from({length:rows},()=> Array.from({length:cols},()=>0));
+      for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+        for(const [dr,dc] of dirs){
+          let ok=true;
+          for(let k=0;k<5;k++){
+            const rr=r+k*dr, cc=c+k*dc; if(!inside(rr,cc)){ ok=false; break; }
+            const v=tl.board[rr][cc];
+            if(v===other(who)){ ok=false; break; }
+            if(!(v===who || v==='' || isBridgeAt(st.active, rr, cc, who))){ ok=false; break; }
+          }
+          if(!ok) continue;
+          for(let k=0;k<5;k++){
+            const rr=r+k*dr, cc=c+k*dc;
+            score[rr][cc] += 1;
+          }
+        }
+      }
+      return score;
+    }
+    const me=st.turn, op=other(me);
+    const sMe=cellScore(me), sOp=cellScore(op);
+    // normalize roughly
+    let max=1;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++) max=Math.max(max, sMe[r][c], sOp[r][c]);
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const x=c*cellW, y=r*cellH;
+      if(sMe[r][c]>0){
+        ctx.fillStyle = "rgba(74, 167, 255," + (0.10 + 0.18 * (sMe[r][c]/max)) + ")";
+        ctx.fillRect(x,y,cellW,cellH);
+      }
+      if(sOp[r][c]>0){
+        ctx.fillStyle = "rgba(255, 96, 122," + (0.10 + 0.18 * (sOp[r][c]/max)) + ")";
+        ctx.fillRect(x,y,cellW,cellH);
+      }
+    }
+  }
+
+  // Start/End Turn 
+  function shatterInvalidForges(){
+    const {pillarsB,pillarsW}=computePillars();
+    for(const who of ['B','W']){
+      const forged=st.forged[who]; const del=[];
+      for(const k of forged){ const keep = who==='B'? pillarsB.has(k):pillarsW.has(k); if(!keep) del.push(k); }
+      del.forEach(k=> forged.delete(k));
+    }
+  }
+
+  function startTurn(){
+    const who=st.turn;
+    // process temp bridges for current player
+    for(const tl of st.timelines){
+      for(const tb of tl.tempBridges){ if(tb.owner===who) tb.remain--; }
+      tl.tempBridges = tl.tempBridges.filter(tb=> tb.remain>0);
+      // ghosts
+      for(const g of tl.ghosts){ if(g.owner===who) g.remain--; }
+      const ready = tl.ghosts.filter(g=> g.owner===who && g.remain<=0);
+      if(ready.length){
+        for(const g of ready){
+          const cur = tl.board[g.r][g.c];
+          if(cur===''){ tl.board[g.r][g.c]=g.owner; st.psi[g.owner]+=1; st.lastPsiHint = "+1Ψ (safe settle)"; log(`${g.owner} settle @(${g.r},${g.c})`); }
+          else if(cur===g.owner){ st.psi[g.owner]+=1; st.lastPsiHint = "+1Ψ (kept stone)"; log(`${g.owner} settle noop @(${g.r},${g.c})`); }
+          else {
+            tl.board[g.r][g.c]='';
+            if(g.delay===1){ st.psi[g.owner]=Math.max(0, st.psi[g.owner]-1); st.lastPsiHint = "-1Ψ (D1 collision)"; }
+            if(g.delay===3){ tl.tempBridges.push({r:g.r,c:g.c,owner:g.owner,remain:1}); st.lastPsiHint = "Temp Bridge created"; }
+            log(`collision @(${g.r},${g.c})`);
+          }
+        }
+        tl.ghosts = tl.ghosts.filter(g=> !(g.owner===who && g.remain<=0));
+      }
+    }
+    shatterInvalidForges();
+    st.actionUsed=false;
+    render();
+    if(checkWin()) return;
+    if(!anyLegalMove()){
+      setTimeout(()=> alert((st.turn==='B'?'Black':'White')+" has no legal move. "+(st.turn==='B'?'White':'Black')+" wins!"), 30);
+      st.gameOver=true; $("#end").disabled=true; return;
+    }
+    drawHeatmap();
+  }
+
+  function endTurn(){
+    if(!st.actionUsed){ toast("Take one action first."); return; }
+    st.turn = other(st.turn);
+    st.turnNum++;
+    render();
+    startTurn();
+    maybeAIMove();
+  }
+
+  function anyLegalMove(){
+    // quick check: empty anywhere → place is legal
+    if(st.timelines.some(tl=> tl.board.some(row=> row.includes('')))) return true;
+    // reserve D3 is 0 cost if cell has no ghost
+    for(const tl of st.timelines){
+      for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+        if(!tl.ghosts.some(g=> g.r===r&&g.c===c)) return true;
+      }
+    }
+    // split legality
+    const who=st.turn;
+    if(st.timelines.some(tl=> tl.ghosts.length>0) && st.psi[who]>=2 && st.splitUsed[who]<st.maxSplits && st.timelines.length<st.maxTimelines) return true;
+    // forge
+    const {pillarsB,pillarsW,contested}=computePillars();
+    const my = who==='B'? pillarsB:pillarsW;
+    for(const k of my){ if(!contested.has(k) && !st.forged[who].has(k) && st.psi[who]>=1) return true; }
+    // merge
+    if(!st.mergeUsed[who] && st.psi[who]>=3 && st.timelines.length>=2) return true;
+    // close
+    if(st.timelines.length>1 && st.timelines.some((tl,i)=> tl.createdBy===who && i!==0)) return true;
+    return false;
+  }
+
+  // Actions 
+  let mode='place', delayChoice=2;
+  function setMode(m){ mode=m; st.mergePick=[]; document.querySelectorAll('#modes button').forEach(b=> b.classList.toggle('on', b.dataset.mode===m)); render(); }
+  function setDelay(d){ delayChoice=d; document.querySelectorAll('#delays button').forEach(b=> b.classList.toggle('on', (b.dataset.delay|0)===d)); }
+
+  function onCellClick(r,c){
+    if(st.gameOver) return;
+    const tl = st.timelines[st.active];
+    const v = tl.board[r][c];
+    if(mode==='place'){
+      if(st.actionUsed){ toast("You already used your action."); return; }
+      if(v!==''){ toast("Occupied."); return; }
+      tl.board[r][c]=st.turn; st.actionUsed=true; log(`${st.turn} place @(${r},${c})`);
+      render(); if(checkWin()) return; endTurn();
+
+    } else if(mode==='reserve'){
+      if(st.actionUsed){ toast("You already used your action."); return; }
+      if(tl.ghosts.some(g=> g.r===r&&g.c===c)){ toast("Cell already reserved."); return; }
+      const cost = delayChoice===1?2: delayChoice===2?1:0;
+      if(st.psi[st.turn] < cost){ toast("Not enough Ψ."); return; }
+      st.psi[st.turn]-=cost;
+      tl.ghosts.push({r,c,owner:st.turn,remain:delayChoice,delay:delayChoice});
+      st.actionUsed=true; log(`${st.turn} reserve D${delayChoice} @(${r},${c})`);
+      render(); endTurn();
+
+    } else if(mode==='split'){
+      if(st.actionUsed){ toast("You already used your action."); return; }
+      if(st.splitUsed[st.turn] >= st.maxSplits){ toast("No splits remaining."); return; }
+      if(st.timelines.length >= st.maxTimelines){ toast("At cap. Close/Merge first."); return; }
+      const g = tl.ghosts.find(x=> x.r===r && x.c===c);
+      if(!g){ toast("Pick a ghost to split from."); return; }
+      if(st.psi[st.turn] < 2){ toast("Need 2 Ψ."); return; }
+      st.psi[st.turn]-=2;
+      const base = st.timelines[st.active];
+      const clone = { id:Date.now()+Math.random(), name:"T"+(st.timelines.length+1), createdBy: st.turn, board: cloneBoard(base.board), ghosts: cloneGhosts(base.ghosts), tempBridges: cloneTemp(base.tempBridges), lineage:{fromTL: st.active, r, c} };
+      // settle in new line
+      const idx = clone.ghosts.findIndex(x=> x.r===r && x.c===c);
+      if(idx>=0){
+        const cg=clone.ghosts[idx], cell=clone.board[cg.r][cg.c];
+        if(cell===''){ clone.board[cg.r][cg.c]=cg.owner; }
+        else if(cell===cg.owner){ /* noop */ }
+        else { clone.board[cg.r][cg.c]=''; if(cg.delay===1) st.psi[cg.owner]=Math.max(0, st.psi[cg.owner]-1); else if(cg.delay===3) clone.tempBridges.push({r:cg.r,c:cg.c,owner:cg.owner,remain:1}); }
+        clone.ghosts.splice(idx,1);
+      }
+      st.timelines.push(clone); st.active=st.timelines.length-1; st.splitUsed[st.turn]++; st.actionUsed=true;
+      shatterInvalidForges(); log(`${st.turn} split from T${clone.lineage.fromTL+1} @(${r},${c}) → ${clone.name}`);
+      render(); if(checkWin()) return; endTurn();
+
+    } else if(mode==='forge'){
+      if(st.actionUsed){ toast("You already used your action."); return; }
+      const {pillarsB,pillarsW,contested}=computePillars();
+      const k=key(r,c); const my=st.turn==='B'? pillarsB:pillarsW;
+      if(!my.has(k)){ toast("Not your pillar."); return; }
+      if(contested.has(k)){ toast("Contested pillar."); return; }
+      if(st.forged[st.turn].has(k)){ toast("Already forged."); return; }
+      if(st.psi[st.turn] < 1){ toast("Need 1 Ψ."); return; }
+      st.psi[st.turn]-=1; st.forged[st.turn].add(k); st.actionUsed=true; log(`${st.turn} forge pillar @(${r},${c})`);
+      render(); if(checkWin()) return; endTurn();
+
+    } else if(mode==='close'){
+      if(st.actionUsed){ toast("You already used your action."); return; }
+      if(st.timelines.length<=1){ toast("Can't close last."); return; }
+      const idx=st.active; const tlc=st.timelines[idx];
+      if(idx===0){ toast("Can't close root."); return; }
+      if(tlc.createdBy!==st.turn){ toast("Close only your branch."); return; }
+      st.timelines.splice(idx,1); st.active=Math.max(0, idx-1);
+      st.psi[st.turn]+=1; st.actionUsed=true; log(`${st.turn} close a branch (+1Ψ)`);
+      shatterInvalidForges(); render(); if(checkWin()) return; endTurn();
+    }
+  }
+
+  function onTabClick(i){
+    if(st.gameOver) return;
+    if(mode!=='merge'){ st.active=i; render(); drawHeatmap(); return; }
+    // merge flow
+    if(st.actionUsed){ toast("Action used."); return; }
+    if(st.mergeUsed[st.turn]){ toast("Merge already used."); return; }
+    if(st.psi[st.turn] < 3){ toast("Need 3 Ψ."); return; }
+    if(st.mergePick.includes(i)){ st.mergePick = st.mergePick.filter(x=>x!==i); render(); return; }
+    st.mergePick.push(i);
+    render();
+    if(st.mergePick.length===2){ doMerge(st.mergePick[0], st.mergePick[1]); st.mergePick=[]; }
+  }
+
+  function doMerge(aIdx,bIdx){
+    if(aIdx===bIdx){ st.mergePick=[]; render(); return; }
+    const A=st.timelines[aIdx], B=st.timelines[bIdx];
+    const board=newBoard(); const temp=[];
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const a=A.board[r][c], b=B.board[r][c];
+      const hasGhost = A.ghosts.some(g=>g.r===r&&g.c===c) || B.ghosts.some(g=>g.r===r&&g.c===c);
+      if(hasGhost){ board[r][c]=''; continue; }
+      if(a===''&&b==='') board[r][c]='';
+      else if(a!==''&&b==='') board[r][c]=a;
+      else if(a===''&&b!=='') board[r][c]=b;
+      else board[r][c] = (a===b)? a : '';
+      if(A.tempBridges.some(t=>t.r===r&&t.c===c)) temp.push(...A.tempBridges.filter(t=>t.r===r&&t.c===c));
+      if(B.tempBridges.some(t=>t.r===r&&t.c===c)) temp.push(...B.tempBridges.filter(t=>t.r===r&&t.c===c));
+    }
+    const merged={ id:Date.now()+Math.random(), name:"T"+(st.timelines.length), createdBy:null, board, ghosts:[], tempBridges:temp };
+    const i1=Math.max(aIdx,bIdx), i0=Math.min(aIdx,bIdx);
+    st.timelines.splice(i1,1); st.timelines.splice(i0,1); st.timelines.splice(i0,0,merged);
+    st.active=i0; st.psi[st.turn]-=3; st.mergeUsed[st.turn]=true; st.actionUsed=true;
+    shatterInvalidForges(); log(`${st.turn} merge TLs → ${merged.name}`);
+    render(); if(checkWin()) return; endTurn();
+  }
+
+  //Rendering
+  function render(){
+    $("#turnBadge").textContent = (st.turn==='B'?'Black':'White');
+    $("#turnNum").textContent = st.turnNum;
+    $("#psiB").textContent = st.psi.B; $("#psiW").textContent = st.psi.W;
+    $("#splitB").textContent = st.splitUsed.B; $("#splitW").textContent = st.splitUsed.W;
+    $("#mergeB").textContent = st.mergeUsed.B?1:0; $("#mergeW").textContent = st.mergeUsed.W?1:0;
+    $("#tcount").textContent = st.timelines.length;
+    $("#actionBadge").textContent = "Action: "+(st.actionUsed?1:0)+"/1";
+    $("#activeTL").textContent = st.timelines[st.active].name;
+
+    // tabs
+    const tabs=$("#tabs"); tabs.innerHTML="";
+    for(let i=0;i<st.timelines.length;i++){
+      const tl=st.timelines[i];
+      const el=document.createElement("div"); el.className="tab"+(i===st.active?" on":"");
+      if(mode==='merge' && st.mergePick.includes(i)) el.classList.add("pick");
+      // advantage mini metric
+      const me=threatCount(i, st.turn), op=threatCount(i, other(st.turn));
+      const icon = document.createElement("div");
+      if(tl.lineage) { icon.className="forkIcon"; icon.title="Forked from "+("T"+(tl.lineage.fromTL+1))+" @("+tl.lineage.r+","+tl.lineage.c+")"; }
+      else { icon.className="timelineIcon"; }
+      el.appendChild(icon);
+      const name=document.createElement("div"); name.textContent=tl.name; el.appendChild(name);
+      const mini=document.createElement("div"); mini.className="mini"; mini.textContent=(me-op>=0? "🔥":"🛡️")+ (me-op); el.appendChild(mini);
+      el.addEventListener("mouseenter", ()=>{
+        // brief highlight source if any
+        if(tl.lineage && i===st.active){ flashCell(tl.lineage.r, tl.lineage.c); }
+      });
+      el.addEventListener("click", ()=> onTabClick(i));
+      tabs.appendChild(el);
+    }
+
+    // board
+    const board=$("#board"); const tl=st.timelines[st.active];
+    board.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+    board.innerHTML="";
+    const {pillarsB,pillarsW,contested}=computePillars();
+    const showPillar = $("#ovPillar").checked;
+    const showBridgeAlways = $("#ovBridge").checked;
+
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const cell=document.createElement("div"); cell.className="cell"+(((r+c)&1)?" alt":"");
+      const v=tl.board[r][c];
+      if(v){ const stn=document.createElement("div"); stn.className="stone "+v; cell.appendChild(stn); }
+      const g = tl.ghosts.find(x=> x.r===r && x.c===c);
+      if(g){
+        const gh=document.createElement("div"); gh.className="ghost "+g.owner+(mode==='split'?' sel':''); gh.textContent=g.remain; cell.appendChild(gh);
+      }
+      if(tl.tempBridges.some(t=> t.r===r && t.c===c)){ const tb=document.createElement("div"); tb.className="tempBridge"; cell.appendChild(tb); }
+      const k=key(r,c);
+      const contestedHere = contested.has(k);
+      if(showPillar && (pillarsB.has(k)||pillarsW.has(k))){
+        const dot=document.createElement("div"); dot.className="pillarDot"+(contestedHere?" contest":""); cell.appendChild(dot);
+      }
+      if(!contestedHere && (st.forged.B.has(k)||st.forged.W.has(k))){
+        const star=document.createElement("div"); star.className="forgeStar"; star.textContent="★"; cell.appendChild(star);
+      }
+      // Bridge preview layer
+      if((st.showBridgeHold || showBridgeAlways) && v==='' && (isBridgeAt(st.active,r,c,'B')||isBridgeAt(st.active,r,c,'W'))){
+        const pv=document.createElement("div"); pv.className="bridgePreview"; cell.appendChild(pv);
+      }
+
+      cell.addEventListener("click", ()=> onCellClick(r,c));
+      board.appendChild(cell);
+    }
+
+    // info panel computed
+    const branching = st.timelines.length * st.timelines[st.active].ghosts.length;
+    $("#branching").textContent = branching;
+    const meTh = threatCount(st.active, st.turn), opTh = threatCount(st.active, other(st.turn));
+    $("#thMe").textContent = meTh; $("#thOp").textContent = opTh;
+    // psi meter (normalize 0..9)
+    const totalPsi = Math.min(9, st.psi.B + st.psi.W);
+    $("#psiMeter").style.width = Math.max(5, (100* (st.psi[st.turn]/9))).toFixed(1)+"%";
+    $("#psiHint").textContent = st.lastPsiHint;
+
+    // pillar list (top 3 by support count)
+    const supports = [];
+    function pushSup(setB,setW){
+      for(const k of new Set([...setB,...setW])){
+        const [r,c]=k.split(',').map(Number);
+        const sB = setB.has(k)? pillarSupport('B',k) : 0;
+        const sW = setW.has(k)? pillarSupport('W',k) : 0;
+        supports.push({k,r,c,sB,sW});
+      }
+    }
+    function pillarSupport(who,k){
+      let cnt=0; const [r,c]=k.split(',').map(Number);
+      for(const tl of st.timelines) if(tl.board[r][c]===who) cnt++;
+      return cnt;
+    }
+    pushSup(pillarsB, pillarsW);
+    supports.sort((a,b)=> Math.max(a.sB,a.sW)===Math.max(b.sB,b.sW) ? 0 : Math.max(b.sB,b.sW)-Math.max(a.sB,a.sW));
+    const top = supports.slice(0,3).map(x=>{
+      const forged = (st.forged.B.has(x.k)?'★B':'') + (st.forged.W.has(x.k)?'★W':'');
+      return `(${x.r},${x.c}) — B:${x.sB} W:${x.sW} ${forged}`;
+    }).join("\n") || '—';
+    $("#pillarList").textContent = top;
+  }
+
+  function flashCell(r,c){
+    const board=$("#board");
+    const idx = r*N + c;
+    const el = board.children[idx];
+    if(!el) return;
+    el.style.outline="2px solid "+getComputedStyle(document.documentElement).getPropertyValue('--accent');
+    setTimeout(()=> el.style.outline='none', 700);
+  }
+
+  function checkWin(){
+    let b=false,w=false;
+    for(let i=0;i<st.timelines.length;i++){ b = b || has5(i,'B'); w = w || has5(i,'W'); }
+    if(b||w){
+      const winner = (b&&w)? st.turn : (b?'B':'W');
+      setTimeout(()=> alert((winner==='B'?'Black':'White')+" wins!"), 30);
+      st.gameOver=true; $("#end").disabled=true; return true;
+    }
+    return false;
+  }
+
+  //AI (light greedy) 
+  function maybeAIMove(){
+    if(!$("#aiWhite").checked) return;
+    if(st.turn!=='W' || st.gameOver) return;
+    // 1) win by place
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const tl=st.timelines[st.active]; if(tl.board[r][c]!=='') continue;
+      tl.board[r][c]='W'; const w=has5(st.active,'W'); tl.board[r][c]=''; if(w){ onCellClick(r,c); return; }
+    }
+    // 2) block
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const tl=st.timelines[st.active]; if(tl.board[r][c]!=='') continue;
+      tl.board[r][c]='B'; const w=has5(st.active,'B'); tl.board[r][c]=''; if(w){ onCellClick(r,c); return; }
+    }
+    // 3) greedy place by potential
+    let best=null,bestScore=-1e9; const tl=st.timelines[st.active];
+    function potential(who){
+      let s=0;
+      for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+        for(const [dr,dc] of dirs){
+          let good=true;
+          for(let k=0;k<5;k++){
+            const rr=r+k*dr, cc=c+k*dc; if(!inside(rr,cc)){ good=false; break; }
+            const v=tl.board[rr][cc];
+            if(v===other(who)){ good=false; break; }
+            if(!(v===who || v==='' || isBridgeAt(st.active,rr,cc,who))){ good=false; break; }
+          }
+          if(good) s+=10;
+        }
+      }
+      return s;
+    }
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(tl.board[r][c]!=='') continue;
+      tl.board[r][c]='W';
+      const s = potential('W') - 0.6*potential('B');
+      tl.board[r][c]='';
+      if(s>bestScore){ bestScore=s; best={r,c}; }
+    }
+    if(best){ onCellClick(best.r,best.c); return; }
+    // fallback reserve D3
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(!tl.ghosts.some(g=> g.r===r&&g.c===c)){ setMode('reserve'); setDelay(3); onCellClick(r,c); return; }
+    }
+  }
+
+  //  Log 
+  function log(s){ const el=$("#log"); el.textContent += s + "\n"; el.scrollTop = el.scrollHeight; }
+
+  // Bindings 
+  document.querySelectorAll("#delays button").forEach(b=> b.addEventListener("click", ()=> setDelay(parseInt(b.dataset.delay))));
+  document.querySelectorAll("#modes button").forEach(b=> b.addEventListener("click", ()=> setMode(b.dataset.mode)));
+  $("#end").addEventListener("click", endTurn);
+  $("#aiNow").addEventListener("click", maybeAIMove);
+  $("#aiWhite").addEventListener("change", maybeAIMove);
+  $("#ovHeat").addEventListener("change", drawHeatmap);
+  $("#ovPillar").addEventListener("change", render);
+  $("#ovBridge").addEventListener("change", render);
+  window.addEventListener("resize", drawHeatmap);
+  // space to preview bridges
+  window.addEventListener("keydown", (e)=>{ if(e.code==='Space'){ st.showBridgeHold=true; render(); }});
+  window.addEventListener("keyup", (e)=>{ if(e.code==='Space'){ st.showBridgeHold=false; render(); }});
+
+  // Boot 
+  init();
+})();
+</script>
+</body>
+</html>
